@@ -1,0 +1,28 @@
+Function Code = 03)
+000A 40011 R/W Input range (address low)
+Code:08H~0DH
+08H: ± 10V
+09H: ± 5V
+0AH: ± 1V
+0BH: ± 500mV
+0CH: ± 150mV
+0DH: ± 20mA
+
+JetI/O 6510 Analog Input Register Map (Input Register, Function Code = 04)
+0000 30001 R Analog input signal (Channel 0)
+Units: signed
+Input Range: ± 10V
+Return Value:
+D8F0 ~ 2710(-10000mV ~ +10000mV)
+Input Range: ± 5V
+Return Value:
+EC78 ~ 1388(-5000mV ~ +5000mV)
+Input Range: ± 1V
+FC18 ~ 03E8( -100.0mV ~ +100.0mV)
+Input Range: ± 500mV
+EC78 ~ 1388(-500.0mV ~ +500.0mV)
+Input Range: ± 150mV
+Return Value:
+FA24 ~ 05DC(150.0mV ~ +150.0mV)
+Input Range: ± 20mA
+B1E0~4E20( -20.000mA~+20.000mA )

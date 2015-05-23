@@ -1,0 +1,193 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Access-Control-Allow-Origin" content="*" />
+<link rel="stylesheet" type="text/css" href="font-stylesheet.css" />
+<script type="text/javascript" src="jquery.min.js"></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+	var blockID = $.getUrlParam("blockID");
+
+	$(document).ready(function() {
+		Highcharts.setOptions({
+			global : {
+				useUTC : false
+			},
+			credits : {
+				enabled : false
+			},
+			exporting : {
+				enabled : false
+			}
+		});
+	});
+
+	var hjh = {
+		util : {
+			repeat : function(fn, timeout) {
+				var innerFn = function() {
+					try {
+						fn();
+					} finally {
+						setTimeout(innerFn, timeout);
+					}
+				};
+				innerFn();
+			}
+		},
+		prevalue : null
+	};
+
+	hjh.addPoint = function(x, y) {
+		if (!hjh.chart) {
+			return;
+		}
+		if (null == hjh.prevalue) {
+			hjh.prevalue = y;
+		} else {
+			if (hjh.prevalue == y) {
+				return;
+			}
+			hjh.prevalue = y;
+		}
+		try {
+			hjh.chart.addPoint([ x, y ], true, false);
+		} catch (e) {
+			try {
+				hjh.chart.addPoint([ x, y ], true, false);
+			} catch (e) {
+			}
+		}
+	};
+
+	hjh.createLine = function(title, value, color) {
+		return {
+			value : value,
+			color : color,
+			width : 1,
+			label : {
+				text : title + ' : ' + value,
+				align : 'center',
+				style : {
+					color : 'black'
+				}
+			}
+		};
+	};
+
+	function createCellChart(c_title, under, warn, over, chartdata) {
+
+		$('<div id="container" style="min-width: 500px; height: '+ ($(window).height() - 20)+'px; margin: 0 auto; "></div>').appendTo($(document.body));
+		
+		$('#container').highcharts(
+				'StockChart',
+				{
+					chart : {
+						events : {
+							load : function() {
+								hjh.chart = this.series[0];
+							}
+						}
+					},
+					xAxis : {
+						type : 'datetime'
+					//,tickPixelInterval: 200
+					},
+					rangeSelector : {
+						buttons : [ {
+							count : 1,
+							type : 'minute',
+							text : '1M'
+						}, {
+							count : 5,
+							type : 'minute',
+							text : '5M'
+						}, {
+							type : 'all',
+							text : 'All'
+						} ],
+						inputEnabled : false,
+						selected : 0
+					},
+					title : {
+						text : "Trend chart " + c_title
+					},
+					yAxis : {
+						title : {
+							text : 'Voltage'
+						},
+						//minorGridLineWidth: 0,
+						//gridLineWidth: 0,
+						plotLines : [
+								hjh.createLine('under voltage', under, 'red'),
+								hjh.createLine('warnning', warn, 'yellow'),
+								hjh.createLine('over voltage', over, 'red') ]
+					},
+					legend : {
+						enabled : false
+					},
+					series : [ {
+						name : 'Voltage',
+						data : chartdata
+					} ]
+				});
+	}
+
+	function changeCellChart(cell) {
+		$.ajax({
+			url : "http://127.0.0.1:8505/ajax/showcell?r=" + Math.random()
+					+ "&id=" + cell + "&blockID=" + blockID,
+			dataType : 'json',
+			error : function(obj, msg, e) {
+				alert('read data error!');
+			},
+			success : function(data) {
+				if (data.id) {
+					hjh.currentcellid = data.id;
+					createCellChart(cell, data.under, data.warn, data.over,
+							data.data);
+				}
+			}
+		});
+	}
+
+	$(function() {
+		var cellId = $.getUrlParam("cell");
+		if (!blockID || !cellId) {
+			return;
+		}
+		changeCellChart(cellId);
+		var itimeout = 1000;
+		var ajaxInfo = function() {
+			$.ajax({
+				url : "http://127.0.0.1:8505/ajax/cellvalue?r=" + Math.random()
+						+ "&id=" + cellId + "&blockID=" + blockID,
+				dataType : 'json',
+				error : function(obj, msg, e) {
+					setTimeout(ajaxInfo, itimeout);
+					console.debug(msg, e);
+				},
+				success : function(data) {
+					try {
+						if (hjh.currentcellid && hjh.chart) {
+							hjh.addPoint(data.time, data.value);
+						}
+					} finally {
+						setTimeout(ajaxInfo, itimeout);
+					}
+				}
+			});
+		};
+		ajaxInfo();
+	});
+</script>
+</head>
+<body>
+
+	<script type="text/javascript" src="highstock.js"></script>
+
+</body>
+</html>

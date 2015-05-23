@@ -1,0 +1,193 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Access-Control-Allow-Origin" content="*" />
+<link rel="stylesheet" type="text/css" href="font-stylesheet.css" />
+<link href="jquery.loadmask.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="jquery.min.js"></script>
+<script type='text/javascript' src='jquery.loadmask.js'></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+	var blockID = $.getUrlParam("blockID");
+
+	$(document).ready(function() {
+		Highcharts.setOptions({
+			global : {
+				useUTC : false
+			},
+			credits : {
+				enabled : false
+			},
+			exporting : {
+				enabled : false
+			}
+		});
+	});
+
+	var hjh = {
+		util : {
+			repeat : function(fn, timeout) {
+				var innerFn = function() {
+					try {
+						fn();
+					} finally {
+						setTimeout(innerFn, timeout);
+					}
+				};
+				innerFn();
+			}
+		}
+	};
+
+	function updateBlockChart(data, title) {
+		if (!hjh.blockSeries) {
+			return;
+		}
+		if (title) {
+			hjh.blockchart.setTitle({
+				text : title
+			});
+		}
+		hjh.blockSeries.setData(data);
+
+	}
+
+	function createBlockChart(title, data) {
+
+		if (hjh.blockContainer) {
+			return;
+		}
+
+		var cellNames = [];
+		for ( var i = 1; i <= 14; i++) {
+			cellNames.push("Cell " + i);
+		}
+
+		hjh.blockContainer = $('<div id="container" style="min-width: 500px; height: '+ ($(window).height() - 20)+'px; margin: 0 auto; "></div>').appendTo($(document.body));
+
+		hjh.blockContainer.highcharts({
+			chart : {
+				type : 'column',
+				margin : [ 50, 50, 100, 80 ],
+				events : {
+					load : function() {
+						hjh.blockchart = this;
+						hjh.blockSeries = this.series[0];
+					}
+				}
+			},
+			title : {
+				text : title
+			},
+			xAxis : {
+				categories : cellNames,
+				labels : {
+					rotation : -45,
+					align : 'right',
+					style : {
+						color : 'black',
+						fontSize : '13px',
+						fontFamily : 'Verdana, sans-serif'
+					}
+				}
+			},
+			yAxis : {
+				title : {
+					text : 'Voltage (mV)'
+				}
+			},
+			legend : {
+				enabled : false
+			},
+			credits : {
+				enabled : false
+			},
+			tooltip : {
+				pointFormat : 'Voltage: <b>{point.y:.1f} mV</b>',
+			},
+			/**plotOptions : {
+				column : {
+					cursor : 'pointer',
+					point : {
+						events : {
+							click : function() {
+								// changeCellChart(this.category);
+							}
+						}
+					}
+				}
+			},*/
+			series : [ {
+				name : 'Block',
+				data : data,
+				dataLabels : {
+					enabled : true,
+					color : 'black',
+					align : 'center',
+					style : {
+						fontSize : '13px',
+						fontWeight : 'bold',
+						fontFamily : 'Verdana, sans-serif',
+						textShadow : '0 0 3px white'
+					}
+				}
+			} ]
+		});
+
+	}
+
+	$(function() {
+		if(!blockID){
+			return;
+		}
+		var itimeout = 900;
+		createBlockChart('', []);
+		var ajaxblockinfo = function() {
+			$.ajax({
+				url : "http://127.0.0.1:8505/ajax/blockInfo?r=" + Math.random()
+						+ "&blockID=" + blockID,
+				dataType : 'json',
+				error : function(obj, msg, e) {
+					setTimeout(ajaxblockinfo, itimeout);
+					console.debug(msg, e);
+				},
+				success : function(data) {
+					try {
+						if (data.id) {
+							var change = data.id != hjh.currentblockid;
+							if (change) {
+								hjh.currentblockid = data.id;
+							}
+							try {
+								if (hjh.chart && hjh.currentcellid) {
+									hjh.addPoint(data.time,
+											data.data[hjh.currentcellid - 1]);
+								}
+							} finally {
+								updateBlockChart(data.data, change ? data.title
+										: null);
+							}
+						} else {
+							hjh.currentblockid = 0;
+						}
+					} finally {
+						setTimeout(ajaxblockinfo, itimeout);
+					}
+
+				}
+			});
+		};
+		ajaxblockinfo();
+	});
+</script>
+</head>
+<body>
+
+	<script type="text/javascript" src="highstock.js"></script>
+	<script type="text/javascript" src="exporting.js"></script>
+
+</body>
+</html>

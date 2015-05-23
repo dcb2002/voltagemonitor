@@ -1,0 +1,363 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="font-stylesheet.css" />
+<script type="text/javascript" src="jquery.min.js"></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+
+	var hjh = {
+		drawing : false,
+		style : {
+			headheight : 0,
+			margin : 5
+		},
+		valuecolor : function(colortype, currentvaluetype, light) {
+			var darkcolor = hjh.colors['darklight'];
+			if (!light.fill) {
+				light.fill = darkcolor;
+			}
+			var tofill = null;
+			if (hjh.colortypeMapValuetype[colortype] == currentvaluetype) {
+				/**if (light.fill == darkcolor) {
+					tofill = hjh.colors[colortype];
+				}*/
+				// 闪烁效果
+				if (light.fill == hjh.colors[colortype]) {
+					tofill = darkcolor;
+				} else {
+					tofill = hjh.colors[colortype];
+				}
+			} else {
+				if (light.fill != darkcolor) {
+					tofill = darkcolor;
+				}
+			}
+
+			if (tofill) {
+				light.attr({
+					fill : tofill
+				});
+				light.fill = tofill;
+			}
+
+		},
+		colors : {
+			over : 'red',
+			under : 'red',
+			warn : 'yellow',
+			darklight : 'gray'
+		},
+		blockArea : {
+			w : 180,
+			h : 85,
+			padding : 5
+		},
+		util : {
+			repeat : function(fn, timeout) {
+				var innerFn = function() {
+					try {
+						fn();
+					} finally {
+						setTimeout(innerFn, timeout);
+					}
+				};
+				innerFn();
+			},
+			delay : function(fn, timeout) {
+				setTimeout(function() {
+					fn();
+				}, timeout);
+			},
+			area : function() {
+				var client_w = $(window).width() - hjh.style.margin * 2;
+				var client_h = $(window).height();
+				var total = hjh.datas.length;
+				var colCount = parseInt(client_w / hjh.blockArea.w);
+				var rowCount = parseInt((total + colCount - 1) / colCount);
+				var w = colCount * hjh.blockArea.w;
+				var h = rowCount * hjh.blockArea.h + hjh.style.headheight;
+				return {
+					w : w,
+					h : h,
+					col : colCount,
+					row : rowCount
+				};
+			}
+		},
+		datas : null,
+		isDrawing : function() {
+			if (hjh.drawing) {
+				if (hjh.drawcount == hjh.datas.length) {
+					hjh.drawing = false;
+				}
+			}
+			return hjh.drawing;
+		},
+		draw : function() {
+			if (hjh.isDrawing()) {
+				hjh.util.delay(hjh.draw, 500);
+				return;
+			}
+			hjh.doDraw();
+		},
+		computePosition : function(data) {
+			var area = hjh.area;
+			var order = data.draworder + 1;
+			var row = parseInt((order + area.col - 1) / area.col);
+			var col = order - (row - 1) * area.col;
+			var left = (col - 1) * hjh.blockArea.w + hjh.blockArea.padding;
+			var top = (row - 1) * hjh.blockArea.h + hjh.style.headheight
+					+ hjh.blockArea.padding;
+			return {
+				row : row,
+				col : col,
+				left : left,
+				top : top
+			};
+		},
+		drawItem : function(pen, data) {
+			try {
+				hjh.doDrawItem(pen, data);
+			} finally {
+				hjh.drawcount++;
+			}
+		},
+		doDrawItem : function(pen, data) {
+
+			data.position = hjh.computePosition(data);
+
+			var left = data.position.left;
+			var top = data.position.top;
+			var maxwidth = hjh.blockArea.w - hjh.blockArea.padding * 2;
+			var maxheight = hjh.blockArea.h - hjh.blockArea.padding * 2;
+
+			var step1Top = top + 12;
+			var step2Top = step1Top + 30;
+			var circleR = 5;
+
+			var bgcolor = '#333436';
+			var fontcolor = 'white';
+			var darklightcolor = hjh.colors.darklight;
+
+			var btnLabelCss = {
+				color : fontcolor,
+				textAlign : 'center',
+				textShadow : 'black',
+				fontSize : '15px'
+			};
+
+			var lights = {};
+
+			//console.debug(data);
+
+			//背景	
+			pen.rect(left, top, maxwidth + 7, maxheight).attr({
+				fill : bgcolor,
+				stroke : fontcolor,
+				'stroke-width' : 2,
+				r : 5
+			}).add();
+
+			pen.label(data.title, left, top).attr({
+				width : maxwidth
+			}).css({
+				textAlign : 'center',
+				color : fontcolor
+			}).add();
+
+			data.oldvalue = data.value;
+			data.valuepane = pen.label(data.value, left,
+					top + (maxheight - 20) / 2).attr({
+				width : maxwidth
+			}).css({
+				color : fontcolor,
+				cursor : 'pointer',
+				textAlign : 'center',
+				textShadow : 'black',
+				fontSize : '25px',
+				fontFamily : 'digifacewideregular'
+			}).on('click', function() {
+				hjh.viewDetail(data.index);
+			}).add();
+
+			lights.over = pen.circle(left + 13, step1Top, circleR).attr({
+				fill : darklightcolor
+			}).add();
+
+			pen.label('H', left + 5, step1Top).css(btnLabelCss).add();
+
+			lights.warn = pen.circle(left + 13, step2Top, circleR).attr({
+				fill : darklightcolor
+			}).add();
+
+			pen.label('W', left + 5, step2Top).css(btnLabelCss).add();
+
+			lights.under = pen.circle(left + maxwidth - 8, step1Top, circleR)
+					.attr({
+						fill : darklightcolor
+					}).add();
+
+			pen.label('L', left + maxwidth - 15, step1Top).css(btnLabelCss)
+					.add();
+
+			data.lights = lights;
+
+		}
+	};
+
+	hjh.doDraw = function() {
+		var old = hjh.area;
+		hjh.area = hjh.util.area();
+		if (old) {
+			if (old.w == hjh.area.w) {
+				
+				return;
+			}
+		}
+		
+		hjh.drawing = true;
+		hjh.drawcount = 0;
+		
+		if (hjh.container) {
+			hjh.container.remove();
+		}
+
+		hjh.container = $(
+				[ '<div id="container" style="width: ',hjh.area.w,'px; height: ',hjh.area.h,'px; margin: 0 auto"></div>' ]
+						.join('')).prependTo(document.body);
+
+		hjh.chart = new Highcharts.Chart({
+			chart : {
+				renderTo : 'container',
+				events : {
+					load : function() {
+						hjh.pen = this.renderer;
+						var len = hjh.datas.length;
+						var dataindex = 0;
+						var drawitem = function() {
+							hjh.datas[dataindex].draworder = dataindex;
+							try {
+								hjh.drawItem(hjh.pen, hjh.datas[dataindex]);
+							} finally {
+								dataindex++;
+								if (dataindex < len) {
+									hjh.util.delay(drawitem, 10);
+								}else{
+									hjh.drawing = false;
+								}
+								if (hjh.drawcount == len) {
+									hjh.drawing = false;
+								}
+							}
+						};
+						drawitem();
+					}
+				}
+			},
+			title : {
+				text : ''
+			},
+			exporting : {
+				enabled : false
+			},
+			legend : {
+				enabled : false
+			},
+			credits : {
+				enabled : false
+			}
+		});
+
+	};
+
+	$(function() {
+
+		$(window).resize(function() {
+			hjh.util.delay(hjh.draw, 500);
+		});
+
+		hjh.util.repeat(function() {
+			if (hjh.isDrawing() || !hjh.datas) {
+				return;
+			}
+			var len = hjh.datas.length;
+			for ( var i = 0; i < len; i++) {
+				var data = hjh.datas[i];
+				if (!data.lights || !data.valuetype) {
+					continue;
+				}
+				hjh.valuecolor('over', data.valuetype, data.lights.over);
+				hjh.valuecolor('under', data.valuetype, data.lights.under);
+				hjh.valuecolor('warn', data.valuetype, data.lights.warn);
+			}
+		}, 300);
+		
+		var itimeout = 900;
+		var ajaxblockinfo = function() {
+			$.ajax({
+				url : "http://127.0.0.1:8505/ajax/blockvalues?r=" + Math.random(),
+				dataType : 'json',
+				error : function(obj, msg, e) {
+					setTimeout(ajaxblockinfo, itimeout);
+					console.debug(msg, e);
+				},
+				success : function(newdata) {
+					try {
+						if (!hjh.isDrawing() && hjh.datas) {
+							var len = hjh.datas.length;
+							for ( var i = 0; i < len; i++) {
+								var data = hjh.datas[i];
+								data.value = newdata.data[i][0];
+								data.valuetype = newdata.data[i][1];
+								if (data.valuepane) {
+									if (data.value != data.oldvalue) {
+										data.oldvalue = data.value;
+										data.valuepane.attr({
+											text : data.value
+										});
+									}
+								}
+							}
+						}
+					} finally {
+						setTimeout(ajaxblockinfo, itimeout);
+					}
+				}
+			});
+		};
+		ajaxblockinfo();
+		
+	});
+
+	hjh.valuetypes = [ 'over', 'under', 'warn', 'normal' ];
+
+	hjh.colortypeMapValuetype = {
+		'over' : 'over',
+		'under' : 'under',
+		'warn' : 'warn'
+	};
+
+	hjh.viewDetail = function(blockid) {
+		//console.debug("view block", blockid);
+		java_block_detail(""+blockid);
+	};
+
+	$(function() {
+		if(hjh.datas.length>0){
+			hjh.draw();
+		}
+	});
+</script>
+</head>
+<body>
+	<script type="text/javascript" src="highstock.js"></script>
+	<script type="text/javascript" src="exporting.js"></script>
+	<script type="text/javascript" src="blocks.js"></script>
+	
+</body>
+</html>
